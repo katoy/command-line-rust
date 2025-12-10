@@ -1,13 +1,14 @@
 use anyhow::Result;
-use assert_cmd::Command;
+use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use pretty_assertions::assert_eq;
 use std::fs;
+use std::process::Command;
 
 // --------------------------------------------------
 #[test]
 fn dies_no_args() -> Result<()> {
-    Command::cargo_bin("echor")?
+    Command::new(env!("CARGO_BIN_EXE_echor"))
         .assert()
         .failure()
         .stderr(predicate::str::contains("Usage"));
@@ -17,7 +18,7 @@ fn dies_no_args() -> Result<()> {
 // --------------------------------------------------
 fn run(args: &[&str], expected_file: &str) -> Result<()> {
     let expected = fs::read_to_string(expected_file)?;
-    let output = Command::cargo_bin("echor")?
+    let output = Command::new(env!("CARGO_BIN_EXE_echor"))
         .args(args)
         .output()
         .expect("fail");
