@@ -5,3 +5,20 @@ debug
 *.py
 **/*.rs.bk
 Cargo.lock
+
+# Rust
+*.profdata
+*.dSYM
+dist/
+build/
+tmp/
+*.log
+*.backup
+*.bin
+*.o
+Cargo.toml.orig
+
+# IDE
+/.vscode/
+/.idea/
+
