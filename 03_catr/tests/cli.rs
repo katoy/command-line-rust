@@ -5,7 +5,6 @@ use pretty_assertions::assert_eq;
 use rand::{distributions::Alphanumeric, Rng};
 use std::fs;
 
-const PRG: &str = "catr";
 const EMPTY: &str = "tests/inputs/empty.txt";
 const FOX: &str = "tests/inputs/fox.txt";
 const SPIDERS: &str = "tests/inputs/spiders.txt";
@@ -15,7 +14,7 @@ const BUSTLE: &str = "tests/inputs/the-bustle.txt";
 #[test]
 fn usage() -> Result<()> {
     for flag in &["-h", "--help"] {
-        Command::cargo_bin(PRG)?
+        Command::new(env!("CARGO_BIN_EXE_catr"))
             .arg(flag)
             .assert()
             .stdout(predicate::str::contains("Usage"));
@@ -43,7 +42,7 @@ fn gen_bad_file() -> String {
 fn skips_bad_file() -> Result<()> {
     let bad = gen_bad_file();
     let expected = format!("{bad}: .* [(]os error 2[)]");
-    Command::cargo_bin(PRG)?
+    Command::new(env!("CARGO_BIN_EXE_catr"))
         .arg(&bad)
         .assert()
         .success()
@@ -54,7 +53,10 @@ fn skips_bad_file() -> Result<()> {
 // --------------------------------------------------
 fn run(args: &[&str], expected_file: &str) -> Result<()> {
     let expected = fs::read_to_string(expected_file)?;
-    let output = Command::cargo_bin(PRG)?.args(args).output().unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_catr"))
+        .args(args)
+        .output()
+        .unwrap();
     assert!(output.status.success());
 
     let stdout = String::from_utf8(output.stdout).expect("invalid UTF-8");
@@ -64,14 +66,10 @@ fn run(args: &[&str], expected_file: &str) -> Result<()> {
 }
 
 // --------------------------------------------------
-fn run_stdin(
-    input_file: &str,
-    args: &[&str],
-    expected_file: &str,
-) -> Result<()> {
+fn run_stdin(input_file: &str, args: &[&str], expected_file: &str) -> Result<()> {
     let input = fs::read_to_string(input_file)?;
     let expected = fs::read_to_string(expected_file)?;
-    let output = Command::cargo_bin(PRG)?
+    let output = Command::new(env!("CARGO_BIN_EXE_catr"))
         .write_stdin(input)
         .args(args)
         .output()

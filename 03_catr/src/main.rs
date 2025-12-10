@@ -12,11 +12,7 @@ struct Args {
     files: Vec<String>,
 
     /// Number lines
-    #[arg(
-        short('n'),
-        long("number"),
-        conflicts_with("number_nonblank_lines")
-    )]
+    #[arg(short('n'), long("number"), conflicts_with("number_nonblank_lines"))]
     number_lines: bool,
 
     /// Number non-blank lines
