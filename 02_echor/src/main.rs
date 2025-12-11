@@ -6,8 +6,7 @@ use clap::Parser;
 /// - `text`: 出力するテキスト（1つ以上必須）
 /// - `omit_newline`: trueの場合、末尾の改行を省略する
 #[derive(Debug, Parser)]
-#[command(author, version, about)]
-/// Rust version of `echo`
+#[command(author, version, about = "Rust version of `echo`")]
 struct Args {
     /// Input text
     #[arg(required = true)]
