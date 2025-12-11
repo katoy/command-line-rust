@@ -3,6 +3,8 @@ name = "catr"
 version = "0.1.0"
 edition = "2021"
 authors = [ "Ken Youens-Clark <kyclark@gmail.com>" ]
+description = "Rust implementation of cat"
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.79"

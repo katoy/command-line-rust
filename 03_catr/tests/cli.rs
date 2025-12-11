@@ -23,6 +23,29 @@ fn usage() -> Result<()> {
 }
 
 // --------------------------------------------------
+#[test]
+fn version() -> Result<()> {
+    for flag in &["-V", "--version"] {
+        Command::new(env!("CARGO_BIN_EXE_catr"))
+            .arg(flag)
+            .assert()
+            .stdout(predicate::str::contains(env!("CARGO_PKG_VERSION")));
+    }
+    Ok(())
+}
+
+// --------------------------------------------------
+#[test]
+fn conflicting_options() -> Result<()> {
+    Command::new(env!("CARGO_BIN_EXE_catr"))
+        .args(&["-n", "-b"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+    Ok(())
+}
+
+// --------------------------------------------------
 fn gen_bad_file() -> String {
     loop {
         let filename: String = rand::thread_rng()
@@ -55,11 +78,10 @@ fn run(args: &[&str], expected_file: &str) -> Result<()> {
     let expected = fs::read_to_string(expected_file)?;
     let output = Command::new(env!("CARGO_BIN_EXE_catr"))
         .args(args)
-        .output()
-        .unwrap();
+        .output()?;
     assert!(output.status.success());
 
-    let stdout = String::from_utf8(output.stdout).expect("invalid UTF-8");
+    let stdout = String::from_utf8(output.stdout)?;
     assert_eq!(stdout, expected);
 
     Ok(())
@@ -72,11 +94,10 @@ fn run_stdin(input_file: &str, args: &[&str], expected_file: &str) -> Result<()>
     let output = Command::new(env!("CARGO_BIN_EXE_catr"))
         .write_stdin(input)
         .args(args)
-        .output()
-        .unwrap();
+        .output()?;
     assert!(output.status.success());
 
-    let stdout = String::from_utf8(output.stdout).expect("invalid UTF-8");
+    let stdout = String::from_utf8(output.stdout)?;
     assert_eq!(stdout, expected);
     Ok(())
 }
