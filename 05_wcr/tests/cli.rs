@@ -1,11 +1,11 @@
 use anyhow::Result;
-use assert_cmd::Command;
+use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use pretty_assertions::assert_eq;
 use rand::{distributions::Alphanumeric, Rng};
 use std::fs;
+use std::process::Command;
 
-const PRG: &str = "wcr";
 const EMPTY: &str = "tests/inputs/empty.txt";
 const FOX: &str = "tests/inputs/fox.txt";
 const ATLAMAL: &str = "tests/inputs/atlamal.txt";
@@ -28,7 +28,7 @@ fn gen_bad_file() -> String {
 // --------------------------------------------------
 #[test]
 fn dies_chars_and_bytes() -> Result<()> {
-    Command::cargo_bin(PRG)?
+    Command::new(assert_cmd::cargo::cargo_bin!("wcr"))
         .args(["-m", "-c"])
         .assert()
         .failure()
@@ -41,7 +41,10 @@ fn dies_chars_and_bytes() -> Result<()> {
 // --------------------------------------------------
 fn run(args: &[&str], expected_file: &str) -> Result<()> {
     let expected = fs::read_to_string(expected_file)?;
-    let output = Command::cargo_bin(PRG)?.args(args).output().expect("fail");
+    let output = Command::new(assert_cmd::cargo::cargo_bin!("wcr"))
+        .args(args)
+        .output()
+        .expect("fail");
     assert!(output.status.success());
 
     let stdout = String::from_utf8(output.stdout).expect("invalid UTF-8");
@@ -55,7 +58,7 @@ fn run(args: &[&str], expected_file: &str) -> Result<()> {
 fn skips_bad_file() -> Result<()> {
     let bad = gen_bad_file();
     let expected = format!("{bad}: .* [(]os error 2[)]");
-    Command::cargo_bin(PRG)?
+    Command::new(assert_cmd::cargo::cargo_bin!("wcr"))
         .arg(bad)
         .assert()
         .success()
@@ -163,10 +166,9 @@ fn atlamal_bytes_lines() -> Result<()> {
 #[test]
 fn atlamal_stdin() -> Result<()> {
     let input = fs::read_to_string(ATLAMAL)?;
-    let expected =
-        fs::read_to_string("tests/expected/atlamal.txt.stdin.out")?;
+    let expected = fs::read_to_string("tests/expected/atlamal.txt.stdin.out")?;
 
-    let output = Command::cargo_bin(PRG)?
+    let output = assert_cmd::Command::from_std(Command::new(assert_cmd::cargo::cargo_bin!("wcr")))
         .write_stdin(input)
         .output()
         .expect("fail");
