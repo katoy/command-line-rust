@@ -34,14 +34,14 @@ struct Args {
 
 // --------------------------------------------------
 fn main() {
-    if let Err(e) = run(Args::parse()) {
+    if let Err(e) = run(&Args::parse()) {
         eprintln!("{e}");
         std::process::exit(1);
     }
 }
 
 // --------------------------------------------------
-fn run(args: Args) -> Result<()> {
+fn run(args: &Args) -> Result<()> {
     let num_files = args.files.len();
 
     for (file_num, filename) in args.files.iter().enumerate() {
@@ -49,19 +49,14 @@ fn run(args: Args) -> Result<()> {
             Err(err) => eprintln!("{filename}: {err}"),
             Ok(mut file) => {
                 if num_files > 1 {
-                    println!(
-                        "{}==> {filename} <==",
-                        if file_num > 0 { "\n" } else { "" },
-                    );
+                    println!("{}==> {filename} <==", if file_num > 0 { "\n" } else { "" },);
                 }
 
                 if let Some(num_bytes) = args.bytes {
-                    let mut buffer = vec![0; num_bytes as usize];
-                    let bytes_read = file.read(&mut buffer)?;
-                    print!(
-                        "{}",
-                        String::from_utf8_lossy(&buffer[..bytes_read])
-                    );
+                    let mut buffer = Vec::new();
+                    let mut handle = file.take(num_bytes);
+                    handle.read_to_end(&mut buffer)?;
+                    print!("{}", String::from_utf8_lossy(&buffer));
                 } else {
                     let mut line = String::new();
                     for _ in 0..args.lines {
