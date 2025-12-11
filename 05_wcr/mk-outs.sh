@@ -6,7 +6,11 @@ OUT_DIR="tests/expected"
 
 [[ ! -d "$OUT_DIR" ]] && mkdir -p "$OUT_DIR"
 
-for FILE in $FILES; do
+# Create utf8 input
+echo -n "あいう" > "$ROOT/utf8.txt"
+
+# Process all individual files including utf8.txt
+for FILE in $FILES "$ROOT/utf8.txt"; do
     BASENAME=$(basename "$FILE")
     wc      $FILE > ${OUT_DIR}/${BASENAME}.out
     wc -l   $FILE > ${OUT_DIR}/${BASENAME}.l.out

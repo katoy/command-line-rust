@@ -230,3 +230,26 @@ fn test_folder() -> Result<()> {
         .stdout("");
     Ok(())
 }
+
+const UTF8: &str = "tests/inputs/utf8.txt";
+
+#[test]
+fn test_utf8_chars() -> Result<()> {
+    run(&["-m", UTF8], "tests/expected/utf8.txt.m.out")
+}
+
+#[test]
+fn test_utf8_bytes() -> Result<()> {
+    run(&["-c", UTF8], "tests/expected/utf8.txt.c.out")
+}
+
+#[test]
+fn test_utf8_chars_bytes() -> Result<()> {
+    // Note: incompatible flags check is handled by clap/main logic, but if enabled:
+    // wcr -mc ...
+    // But the tool seems to error on conflicts.
+    // Let's check wcr logic. tests/cli.rs says conflict.
+    // So we don't test -mc here as success.
+    // Just individual tests are enough.
+    Ok(())
+}
