@@ -55,8 +55,19 @@ cargo run -- -n "Hello World"
 
 ### テスト
 
-`cargo test` を使用して、単体テストおよび統合テストを実行できます。
+`cargo test` を使用して、統合テストを実行できます。
 統合テスト (`tests/cli.rs`) では、`assert_cmd` を使用してバイナリを実際に実行し、振る舞いを検証しています。
+
+**テストケース一覧:**
+
+| テスト名 | 説明 |
+|---------|------|
+| `dies_no_args` | 引数なしでエラーになることを確認 |
+| `dies_invalid_option` | 無効なオプション（`-x`）でエラーになることを確認 |
+| `hello1` | 単一引数の出力を検証 |
+| `hello2` | 複数引数の出力を検証 |
+| `hello1_no_newline` | `-n` オプションで改行なし出力を検証 |
+| `hello2_no_newline` | 複数引数 + `-n` オプションを検証 |
 
 ```bash
 cargo test
