@@ -64,6 +64,8 @@ fn run(mut args: Args) -> Result<()> {
         match open(filename) {
             Err(err) => eprintln!("{filename}: {err}"),
             Ok(file) => {
+                // count のエラーは無視（ファイルオープン時にエラーチェック済み、
+                // 読み込み中のエラーは稀であり、スキップして次のファイルへ進む）
                 if let Ok(info) = count(file) {
                     println!(
                         "{}{}{}{}{}",
@@ -176,13 +178,13 @@ mod tests {
 
     impl std::io::Read for IoFailure {
         fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "io error"))
+            Err(std::io::Error::other("io error"))
         }
     }
 
     impl std::io::BufRead for IoFailure {
         fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "io error"))
+            Err(std::io::Error::other("io error"))
         }
         fn consume(&mut self, _amt: usize) {}
     }

@@ -54,6 +54,23 @@ fn run(args: &[&str], expected_file: &str) -> Result<()> {
 }
 
 // --------------------------------------------------
+fn run_stdin(args: &[&str], input_file: &str, expected_file: &str) -> Result<()> {
+    let input = fs::read_to_string(input_file)?;
+    let expected = fs::read_to_string(expected_file)?;
+
+    let output = assert_cmd::Command::from_std(Command::new(assert_cmd::cargo::cargo_bin!("wcr")))
+        .args(args)
+        .write_stdin(input)
+        .output()
+        .expect("fail");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("invalid UTF-8");
+    assert_eq!(stdout, expected);
+    Ok(())
+}
+
+// --------------------------------------------------
 #[test]
 fn skips_bad_file() -> Result<()> {
     let bad = gen_bad_file();
@@ -165,18 +182,7 @@ fn atlamal_bytes_lines() -> Result<()> {
 // --------------------------------------------------
 #[test]
 fn atlamal_stdin() -> Result<()> {
-    let input = fs::read_to_string(ATLAMAL)?;
-    let expected = fs::read_to_string("tests/expected/atlamal.txt.stdin.out")?;
-
-    let output = assert_cmd::Command::from_std(Command::new(assert_cmd::cargo::cargo_bin!("wcr")))
-        .write_stdin(input)
-        .output()
-        .expect("fail");
-    assert!(output.status.success());
-
-    let stdout = String::from_utf8(output.stdout).expect("invalid UTF-8");
-    assert_eq!(stdout, expected);
-    Ok(())
+    run_stdin(&[], ATLAMAL, "tests/expected/atlamal.txt.stdin.out")
 }
 
 // --------------------------------------------------
@@ -243,13 +249,5 @@ fn test_utf8_bytes() -> Result<()> {
     run(&["-c", UTF8], "tests/expected/utf8.txt.c.out")
 }
 
-#[test]
-fn test_utf8_chars_bytes() -> Result<()> {
-    // Note: incompatible flags check is handled by clap/main logic, but if enabled:
-    // wcr -mc ...
-    // But the tool seems to error on conflicts.
-    // Let's check wcr logic. tests/cli.rs says conflict.
-    // So we don't test -mc here as success.
-    // Just individual tests are enough.
-    Ok(())
-}
+// Note: -m と -c の同時使用は clap の conflicts_with で禁止されており、
+// dies_chars_and_bytes テストでカバー済み
