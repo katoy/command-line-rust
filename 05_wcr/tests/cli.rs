@@ -220,3 +220,13 @@ fn test_all_words_lines() -> Result<()> {
 fn test_all_bytes_lines() -> Result<()> {
     run(&["-cl", EMPTY, FOX, ATLAMAL], "tests/expected/all.cl.out")
 }
+
+#[test]
+fn test_folder() -> Result<()> {
+    Command::new(assert_cmd::cargo::cargo_bin!("wcr"))
+        .arg("tests/inputs")
+        .assert()
+        .success()
+        .stdout("");
+    Ok(())
+}

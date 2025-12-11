@@ -171,4 +171,30 @@ mod tests {
         assert_eq!(format_field(3, true), "       3");
         assert_eq!(format_field(10, true), "      10");
     }
+
+    struct IoFailure;
+
+    impl std::io::Read for IoFailure {
+        fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, "io error"))
+        }
+    }
+
+    impl std::io::BufRead for IoFailure {
+        fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, "io error"))
+        }
+        fn consume(&mut self, _amt: usize) {}
+    }
+
+    #[test]
+    fn test_count_error() {
+        use std::io::{BufRead, Read};
+        let mut fail = IoFailure;
+        let _ = fail.read(&mut []);
+        fail.consume(0);
+        let info = count(fail);
+        assert!(info.is_err());
+        assert_eq!(info.unwrap_err().to_string(), "io error");
+    }
 }
