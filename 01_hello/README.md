@@ -4,22 +4,31 @@ Rust を使用して micro:bit v2 で LED を点滅させる「Hello, World!」�
 
 ## 目次
 
-- [必要なもの](#必要なもの)
-- [環境構築](#環境構築)
-  - [1. Rust のインストール](#1-rust-のインストール)
-  - [2. ターゲットの追加](#2-ターゲットの追加)
-  - [3. probe-rs のインストール](#3-probe-rs-のインストール)
-- [プロジェクトの作成](#プロジェクトの作成)
-  - [1. 新規プロジェクト作成](#1-新規プロジェクト作成)
-  - [2. Cargo.toml の設定](#2-cargotoml-の設定)
-  - [3. .cargo/config.toml の作成](#3-cargoconfgtoml-の作成)
-  - [4. memory.x の作成](#4-memoryx-の作成)
-  - [5. build.rs の作成](#5-buildrs-の作成)
-  - [6. src/main.rs の作成](#6-srcmainrs-の作成)
-- [ビルドと実行](#ビルドと実行)
-- [トラブルシューティング](#トラブルシューティング)
-- [ファイル構成](#ファイル構成)
-- [参考資料](#参考資料)
+- [micro:bit v2 で Rust - LED 点滅プログラム](#microbit-v2-で-rust---led-点滅プログラム)
+  - [目次](#目次)
+  - [必要なもの](#必要なもの)
+  - [環境構築](#環境構築)
+    - [1. Rust のインストール](#1-rust-のインストール)
+    - [2. ターゲットの追加](#2-ターゲットの追加)
+    - [3. probe-rs のインストール](#3-probe-rs-のインストール)
+  - [プロジェクトの作成](#プロジェクトの作成)
+    - [1. 新規プロジェクト作成](#1-新規プロジェクト作成)
+    - [2. Cargo.toml の設定](#2-cargotoml-の設定)
+    - [3. .cargo/config.toml の作成](#3-cargoconfigtoml-の作成)
+    - [4. memory.x の作成](#4-memoryx-の作成)
+    - [5. build.rs の作成](#5-buildrs-の作成)
+    - [6. src/main.rs の作成](#6-srcmainrs-の作成)
+  - [ビルドと実行](#ビルドと実行)
+    - [1. ビルド](#1-ビルド)
+    - [2. micro:bit への転送](#2-microbit-への転送)
+  - [トラブルシューティング](#トラブルシューティング)
+    - [probe-rs: command not found](#probe-rs-command-not-found)
+    - [No probe detected](#no-probe-detected)
+    - [Target device did not respond](#target-device-did-not-respond)
+    - [No loadable segments were found in the ELF file](#no-loadable-segments-were-found-in-the-elf-file)
+  - [ファイル構成](#ファイル構成)
+  - [参考資料](#参考資料)
+  - [ライセンス](#ライセンス)
 
 ---
 
@@ -165,12 +174,12 @@ use std::path::PathBuf;
 
 fn main() {
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
-    
+
     File::create(out.join("memory.x"))
         .unwrap()
         .write_all(include_bytes!("memory.x"))
         .unwrap();
-    
+
     println!("cargo:rustc-link-search={}", out.display());
     println!("cargo:rerun-if-changed=memory.x");
     println!("cargo:rerun-if-changed=build.rs");
@@ -193,7 +202,7 @@ use microbit::hal::timer::Timer;
 use panic_halt as _;
 
 /// micro:bit v2 で LED を点滅させる "Hello, World!" プログラム
-/// 
+///
 /// micro:bit v2 の 5x5 LED マトリクスは行と列で制御される:
 /// - ROW を HIGH にして電流のソースにする
 /// - COL を LOW にして電流のシンクにする
@@ -202,10 +211,10 @@ use panic_halt as _;
 fn main() -> ! {
     // ボードの初期化
     let board = Board::take().unwrap();
-    
+
     // タイマーの初期化
     let mut timer = Timer::new(board.TIMER0);
-    
+
     // LED マトリクスの行1と列1を取得
     let mut row1 = board
         .display_pins
@@ -215,14 +224,14 @@ fn main() -> ! {
         .display_pins
         .col1
         .into_push_pull_output(microbit::hal::gpio::Level::Low);
-    
+
     // LED を点滅（無限ループ）
     loop {
         // LED ON: ROW=HIGH, COL=LOW
         row1.set_high().unwrap();
         col1.set_low().unwrap();
         timer.delay_ms(500u32);
-        
+
         // LED OFF: COL=HIGH にして電流を止める
         col1.set_high().unwrap();
         timer.delay_ms(500u32);
