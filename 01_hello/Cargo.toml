@@ -4,20 +4,7 @@ version = "0.1.1"
 edition = "2021"
 
 [dependencies]
-cortex-m = "0.7"
-cortex-m-rt = "0.7"
-panic-halt = "0.2"
-microbit-v2 = "0.15"
-embedded-hal = "1.0"
 
-# 組み込み向けの場合、dev-dependencies のテストは動作しないためコメントアウト
-# [dev-dependencies]
-# assert_cmd = "2.0.13"
-# pretty_assertions = "1.4.0"
-
-[profile.release]
-opt-level = "s"
-lto = true
-codegen-units = 1
-panic = "abort"
-debug = false
+[dev-dependencies]
+assert_cmd = "2.0.13"
+pretty_assertions = "1.4.0"
