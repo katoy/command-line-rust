@@ -93,11 +93,11 @@ fn run(args: Args) -> Result<()> {
                 Ok(entry) => Some(entry),
             })
             .filter(type_filter)
-            .filter(name_filter)
-            .map(|entry| entry.path().display().to_string())
-            .collect::<Vec<_>>();
+            .filter(name_filter);
 
-        println!("{}", entries.join("\n"));
+        for entry in entries {
+            println!("{}", entry.path().display());
+        }
     }
 
     Ok(())

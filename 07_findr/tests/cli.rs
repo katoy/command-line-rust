@@ -5,8 +5,6 @@ use pretty_assertions::assert_eq;
 use rand::{Rng, distributions::Alphanumeric};
 use std::{borrow::Cow, fs, path::Path};
 
-const PRG: &str = "findr";
-
 // --------------------------------------------------
 fn gen_bad_file() -> String {
     loop {
@@ -27,7 +25,7 @@ fn gen_bad_file() -> String {
 fn skips_bad_dir() -> Result<()> {
     let bad = gen_bad_file();
     let expected = format!("{}: .* [(]os error [23][)]", &bad);
-    Command::cargo_bin(PRG)?
+    Command::new(env!("CARGO_BIN_EXE_findr"))
         .arg(&bad)
         .assert()
         .success()
@@ -38,7 +36,7 @@ fn skips_bad_dir() -> Result<()> {
 // --------------------------------------------------
 #[test]
 fn dies_bad_name() -> Result<()> {
-    Command::cargo_bin(PRG)?
+    Command::new(env!("CARGO_BIN_EXE_findr"))
         .args(["--name", "*.csv"])
         .assert()
         .failure()
@@ -50,7 +48,7 @@ fn dies_bad_name() -> Result<()> {
 #[test]
 fn dies_bad_type() -> Result<()> {
     let expected = "error: invalid value 'x' for '--type [<TYPE>...]'";
-    Command::cargo_bin(PRG)?
+    Command::new(env!("CARGO_BIN_EXE_findr"))
         .args(["--type", "x"])
         .assert()
         .failure()
@@ -79,7 +77,7 @@ fn run(args: &[&str], expected_file: &str) -> Result<()> {
     let mut expected: Vec<&str> = contents.split('\n').filter(|s| !s.is_empty()).collect();
     expected.sort();
 
-    let cmd = Command::cargo_bin(PRG)?.args(args).assert().success();
+    let cmd = Command::new(env!("CARGO_BIN_EXE_findr")).args(args).assert().success();
     let out = cmd.get_output();
     let stdout = String::from_utf8(out.stdout.clone())?;
     let mut lines: Vec<&str> = stdout.split('\n').filter(|s| !s.is_empty()).collect();
@@ -293,7 +291,7 @@ fn unreadable_dir() -> Result<()> {
         .status()
         .expect("failed");
 
-    let cmd = Command::cargo_bin(PRG)?
+    let cmd = Command::new(env!("CARGO_BIN_EXE_findr"))
         .arg("tests/inputs")
         .assert()
         .success();
