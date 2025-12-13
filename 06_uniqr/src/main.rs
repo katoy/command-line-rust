@@ -32,17 +32,25 @@ fn main() {
 
 // --------------------------------------------------
 fn run(args: Args) -> Result<()> {
-    let mut file =
-        open(&args.in_file).map_err(|e| anyhow!("{}: {e}", args.in_file))?;
+    let file = open(&args.in_file).map_err(|e| anyhow!("{}: {e}", args.in_file))?;
 
-    let mut out_file: Box<dyn Write> = match &args.out_file {
+    let out_file: Box<dyn Write> = match &args.out_file {
         Some(out_name) => Box::new(File::create(out_name)?),
         _ => Box::new(io::stdout()),
     };
 
+    do_uniqr(file, out_file, args.count)
+}
+
+// --------------------------------------------------
+fn do_uniqr(
+    mut file: Box<dyn BufRead>,
+    mut out_file: Box<dyn Write>,
+    count_mode: bool,
+) -> Result<()> {
     let mut print = |num: u64, text: &str| -> Result<()> {
         if num > 0 {
-            if args.count {
+            if count_mode {
                 write!(out_file, "{num:>4} {text}")?;
             } else {
                 write!(out_file, "{text}")?;
@@ -79,5 +87,51 @@ fn open(filename: &str) -> Result<Box<dyn BufRead>> {
     match filename {
         "-" => Ok(Box::new(BufReader::new(io::stdin()))),
         _ => Ok(Box::new(BufReader::new(File::open(filename)?))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    struct ErrorWriter;
+    impl Write for ErrorWriter {
+        fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+            Err(io::Error::new(io::ErrorKind::BrokenPipe, "broken pipe"))
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_do_uniqr_error() {
+        let input = Cursor::new("one\ntwo\n");
+        let output = Box::new(ErrorWriter);
+        let result = do_uniqr(Box::new(input), output, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_do_uniqr_count_error() {
+        let input = Cursor::new("one\ntwo\n");
+        let output = Box::new(ErrorWriter);
+        let result = do_uniqr(Box::new(input), output, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_do_uniqr_last_line_error() {
+        let input = Cursor::new("one\n");
+        let output = Box::new(ErrorWriter);
+        let result = do_uniqr(Box::new(input), output, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_writer() {
+        let mut writer = ErrorWriter;
+        assert!(writer.flush().is_ok());
     }
 }

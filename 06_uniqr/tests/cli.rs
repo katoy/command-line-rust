@@ -12,7 +12,7 @@ struct Test {
     out_count: &'static str,
 }
 
-const PRG: &str = "uniqr";
+
 
 const EMPTY: Test = Test {
     input: "tests/inputs/empty.txt",
@@ -100,7 +100,7 @@ fn gen_bad_file() -> String {
 fn dies_bad_file() -> Result<()> {
     let bad = gen_bad_file();
     let expected = format!("{bad}: .* [(]os error 2[)]");
-    Command::cargo_bin(PRG)?
+    Command::new(assert_cmd::cargo::cargo_bin!("uniqr"))
         .arg(bad)
         .assert()
         .failure()
@@ -108,11 +108,33 @@ fn dies_bad_file() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn dies_bad_output_file() -> Result<()> {
+    let bad_out = "tests/does/not/exist/output.txt";
+    Command::new(assert_cmd::cargo::cargo_bin!("uniqr"))
+        .args(["tests/inputs/one.txt", bad_out])
+        .assert()
+        .failure();
+    Ok(())
+}
+
+#[test]
+fn dies_read_directory() -> Result<()> {
+    let temp = tempfile::tempdir()?;
+    let dir_path = temp.path().to_str().unwrap();
+
+    Command::new(assert_cmd::cargo::cargo_bin!("uniqr"))
+        .arg(dir_path)
+        .assert()
+        .failure();
+    Ok(())
+}
+
 // --------------------------------------------------
 // HELPER FUNCTIONS
 fn run(test: &Test) -> Result<()> {
     let expected = fs::read_to_string(test.out)?;
-    let output = Command::cargo_bin(PRG)?
+    let output = Command::new(assert_cmd::cargo::cargo_bin!("uniqr"))
         .arg(test.input)
         .output()
         .expect("fail");
@@ -126,7 +148,7 @@ fn run(test: &Test) -> Result<()> {
 // --------------------------------------------------
 fn run_count(test: &Test) -> Result<()> {
     let expected = fs::read_to_string(test.out_count)?;
-    let output = Command::cargo_bin(PRG)?
+    let output = Command::new(assert_cmd::cargo::cargo_bin!("uniqr"))
         .args([test.input, "-c"])
         .output()
         .expect("fail");
@@ -141,7 +163,7 @@ fn run_count(test: &Test) -> Result<()> {
 fn run_stdin(test: &Test) -> Result<()> {
     let input = fs::read_to_string(test.input)?;
     let expected = fs::read_to_string(test.out)?;
-    let output = Command::cargo_bin(PRG)?
+    let output = Command::new(assert_cmd::cargo::cargo_bin!("uniqr"))
         .write_stdin(input)
         .output()
         .expect("fail");
@@ -156,7 +178,7 @@ fn run_stdin(test: &Test) -> Result<()> {
 fn run_stdin_count(test: &Test) -> Result<()> {
     let input = fs::read_to_string(test.input)?;
     let expected = fs::read_to_string(test.out_count)?;
-    let output = Command::cargo_bin(PRG)?
+    let output = Command::new(assert_cmd::cargo::cargo_bin!("uniqr"))
         .arg("--count")
         .write_stdin(input)
         .output()
@@ -174,7 +196,7 @@ fn run_outfile(test: &Test) -> Result<()> {
     let outfile = NamedTempFile::new()?;
     let outpath = &outfile.path().to_str().unwrap();
 
-    Command::cargo_bin(PRG)?
+    Command::new(assert_cmd::cargo::cargo_bin!("uniqr"))
         .args([test.input, outpath])
         .assert()
         .success()
@@ -190,7 +212,7 @@ fn run_outfile_count(test: &Test) -> Result<()> {
     let outfile = NamedTempFile::new()?;
     let outpath = &outfile.path().to_str().unwrap();
 
-    Command::cargo_bin(PRG)?
+    Command::new(assert_cmd::cargo::cargo_bin!("uniqr"))
         .args([test.input, outpath, "--count"])
         .assert()
         .success()
@@ -209,7 +231,7 @@ fn run_stdin_outfile_count(test: &Test) -> Result<()> {
     let outfile = NamedTempFile::new()?;
     let outpath = &outfile.path().to_str().unwrap();
 
-    Command::cargo_bin(PRG)?
+    Command::new(assert_cmd::cargo::cargo_bin!("uniqr"))
         .args(["-", outpath, "-c"])
         .write_stdin(input)
         .assert()
