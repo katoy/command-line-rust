@@ -135,8 +135,8 @@ fn run(args: Args) -> Result<()> {
             (None, Some(val2)) => {
                 print(Col2(val2));
                 line2 = lines2.next();
-            }
-            _ => (),
+            },
+            (&None, &None) => {},
         }
     }
 
