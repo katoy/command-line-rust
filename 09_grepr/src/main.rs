@@ -161,7 +161,7 @@ mod tests {
     use pretty_assertions::assert_eq;
     use rand::{distributions::Alphanumeric, Rng};
     use regex::{Regex, RegexBuilder};
-    use std::io::Cursor;
+    use std::io::{BufRead, Cursor, Read};
 
     #[test]
     fn test_find_lines() {
@@ -206,9 +206,8 @@ mod tests {
         // The function should reject a directory without the recursive option
         let files = find_files(&["./tests/inputs".to_string()], false);
         assert_eq!(files.len(), 1);
-        if let Err(e) = &files[0] {
-            assert_eq!(e.to_string(), "./tests/inputs is a directory");
-        }
+        let err = files[0].as_ref().unwrap_err();
+        assert_eq!(err.to_string(), "./tests/inputs is a directory");
 
         // Verify the function recurses to find four files in the directory
         let res = find_files(&["./tests/inputs".to_string()], true);
@@ -239,5 +238,32 @@ mod tests {
         let files = find_files(&[bad], false);
         assert_eq!(files.len(), 1);
         assert!(files[0].is_err());
+    }
+
+    struct BrokenReader;
+
+    impl std::io::Read for BrokenReader {
+        fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, "read failed"))
+        }
+    }
+
+    impl std::io::BufRead for BrokenReader {
+        fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, "fill_buf failed"))
+        }
+        fn consume(&mut self, _amt: usize) {}
+    }
+
+    #[test]
+    fn test_find_lines_error() {
+        let re = Regex::new("or").unwrap();
+        let matches = find_lines(BrokenReader, &re, false);
+        assert!(matches.is_err());
+
+        // Cover the other methods in BrokenReader
+        let mut reader = BrokenReader;
+        let _ = reader.read(&mut []);
+        reader.consume(0);
     }
 }
