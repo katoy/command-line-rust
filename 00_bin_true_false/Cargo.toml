@@ -1,0 +1,18 @@
+[package]
+name = "true_false"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "true"
+path = "src/bin/true.rs"
+
+[[bin]]
+name = "false"
+path = "src/bin/false.rs"
+
+[dependencies]
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.0"

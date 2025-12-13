@@ -1,6 +1,0 @@
-[workspace]
-members = [
-    "true_cmd",
-    "false_cmd",
-]
-resolver = "2"
