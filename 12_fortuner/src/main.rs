@@ -1,7 +1,7 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use clap::Parser;
 use rand::prelude::SliceRandom;
-use rand::{rngs::StdRng, RngCore, SeedableRng};
+use rand::{RngCore, SeedableRng, rngs::StdRng};
 use regex::RegexBuilder;
 use std::{
     ffi::OsStr,
@@ -68,8 +68,7 @@ fn run(args: Args) -> Result<()> {
                 .iter()
                 .filter(|fortune| pattern.is_match(&fortune.text))
             {
-                if prev_source.as_ref().map_or(true, |s| s != &fortune.source)
-                {
+                if prev_source.as_ref() != Some(&fortune.source) {
                     eprintln!("({})\n%", fortune.source);
                     prev_source = Some(fortune.source.clone());
                 }
@@ -101,10 +100,7 @@ fn find_files(paths: &[String]) -> Result<Vec<PathBuf>> {
                 WalkDir::new(path)
                     .into_iter()
                     .filter_map(Result::ok)
-                    .filter(|e| {
-                        e.file_type().is_file()
-                            && e.path().extension() != Some(dat)
-                    })
+                    .filter(|e| e.file_type().is_file() && e.path().extension() != Some(dat))
                     .map(|e| e.path().into()),
             ),
         }
@@ -121,10 +117,8 @@ fn read_fortunes(paths: &[PathBuf]) -> Result<Vec<Fortune>> {
     let mut buffer = vec![];
 
     for path in paths {
-        let basename =
-            path.file_name().unwrap().to_string_lossy().into_owned();
-        let file = File::open(path)
-            .map_err(|e| anyhow!("{}: {e}", path.to_string_lossy()))?;
+        let basename = path.file_name().unwrap().to_string_lossy().into_owned();
+        let file = File::open(path).map_err(|e| anyhow!("{}: {e}", path.to_string_lossy()))?;
 
         for line in BufReader::new(file).lines().map_while(Result::ok) {
             if line == "%" {
@@ -157,7 +151,7 @@ fn pick_fortune(fortunes: &[Fortune], seed: Option<u64>) -> Option<String> {
 // --------------------------------------------------
 #[cfg(test)]
 mod tests {
-    use super::{find_files, pick_fortune, read_fortunes, Fortune};
+    use super::{Fortune, find_files, pick_fortune, read_fortunes};
     use std::path::PathBuf;
 
     #[test]
@@ -248,8 +242,7 @@ mod tests {
             },
             Fortune {
                 source: "fortunes".to_string(),
-                text: "Assumption is the mother of all screw-ups."
-                    .to_string(),
+                text: "Assumption is the mother of all screw-ups.".to_string(),
             },
             Fortune {
                 source: "fortunes".to_string(),

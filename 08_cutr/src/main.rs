@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use clap::Parser;
 use csv::{ReaderBuilder, StringRecord, WriterBuilder};
 use regex::Regex;
@@ -66,17 +66,11 @@ fn run(args: Args) -> Result<()> {
     }
     let delimiter: u8 = *delim_bytes.first().unwrap();
 
-    let extract = if let Some(fields) =
-        args.extract.fields.map(parse_pos).transpose()?
-    {
+    let extract = if let Some(fields) = args.extract.fields.map(parse_pos).transpose()? {
         Extract::Fields(fields)
-    } else if let Some(bytes) =
-        args.extract.bytes.map(parse_pos).transpose()?
-    {
+    } else if let Some(bytes) = args.extract.bytes.map(parse_pos).transpose()? {
         Extract::Bytes(bytes)
-    } else if let Some(chars) =
-        args.extract.chars.map(parse_pos).transpose()?
-    {
+    } else if let Some(chars) = args.extract.chars.map(parse_pos).transpose()? {
         Extract::Chars(chars)
     } else {
         unreachable!("Must have --fields, --bytes, or --chars");
@@ -97,9 +91,7 @@ fn run(args: Args) -> Result<()> {
                         .from_writer(io::stdout());
 
                     for record in reader.records() {
-                        wtr.write_record(extract_fields(
-                            &record?, field_pos,
-                        ))?;
+                        wtr.write_record(extract_fields(&record?, field_pos))?;
                     }
                 }
                 Extract::Bytes(byte_pos) => {
@@ -135,15 +127,14 @@ fn open(filename: &str) -> Result<Box<dyn BufRead>> {
 // one less than the number represented by the original input.
 fn parse_index(input: &str) -> Result<usize> {
     let value_error = || anyhow!(r#"illegal list value: "{input}""#);
-    input
-        .starts_with('+')
-        .then(|| Err(value_error()))
-        .unwrap_or_else(|| {
-            input
-                .parse::<NonZeroUsize>()
-                .map(|n| usize::from(n) - 1)
-                .map_err(|_| value_error())
-        })
+    if input.starts_with('+') {
+        Err(value_error())
+    } else {
+        input
+            .parse::<NonZeroUsize>()
+            .map(|n| usize::from(n) - 1)
+            .map_err(|_| value_error())
+    }
 }
 
 // --------------------------------------------------
@@ -169,14 +160,10 @@ fn parse_pos(range: String) -> Result<PositionList> {
             })
         })
         .collect::<Result<_, _>>()
-        .map_err(From::from)
 }
 
 // --------------------------------------------------
-fn extract_fields<'a>(
-    record: &'a StringRecord,
-    field_pos: &[Range<usize>],
-) -> Vec<&'a str> {
+fn extract_fields<'a>(record: &'a StringRecord, field_pos: &[Range<usize>]) -> Vec<&'a str> {
     field_pos
         .iter()
         .cloned()
@@ -220,25 +207,16 @@ mod unit_tests {
         // Zero is an error
         let res = parse_pos("0".to_string());
         assert!(res.is_err());
-        assert_eq!(
-            res.unwrap_err().to_string(),
-            r#"illegal list value: "0""#
-        );
+        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "0""#);
 
         let res = parse_pos("0-1".to_string());
         assert!(res.is_err());
-        assert_eq!(
-            res.unwrap_err().to_string(),
-            r#"illegal list value: "0""#
-        );
+        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "0""#);
 
         // A leading "+" is an error
         let res = parse_pos("+1".to_string());
         assert!(res.is_err());
-        assert_eq!(
-            res.unwrap_err().to_string(),
-            r#"illegal list value: "+1""#,
-        );
+        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "+1""#,);
 
         let res = parse_pos("+1-2".to_string());
         assert!(res.is_err());
@@ -257,31 +235,19 @@ mod unit_tests {
         // Any non-number is an error
         let res = parse_pos("a".to_string());
         assert!(res.is_err());
-        assert_eq!(
-            res.unwrap_err().to_string(),
-            r#"illegal list value: "a""#
-        );
+        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "a""#);
 
         let res = parse_pos("1,a".to_string());
         assert!(res.is_err());
-        assert_eq!(
-            res.unwrap_err().to_string(),
-            r#"illegal list value: "a""#
-        );
+        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "a""#);
 
         let res = parse_pos("1-a".to_string());
         assert!(res.is_err());
-        assert_eq!(
-            res.unwrap_err().to_string(),
-            r#"illegal list value: "1-a""#,
-        );
+        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "1-a""#,);
 
         let res = parse_pos("a-1".to_string());
         assert!(res.is_err());
-        assert_eq!(
-            res.unwrap_err().to_string(),
-            r#"illegal list value: "a-1""#,
-        );
+        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "a-1""#,);
 
         // Wonky ranges
         let res = parse_pos("-".to_string());
@@ -356,10 +322,7 @@ mod unit_tests {
         let rec = StringRecord::from(vec!["Captain", "Sham", "12345"]);
         assert_eq!(extract_fields(&rec, &[0..1]), &["Captain"]);
         assert_eq!(extract_fields(&rec, &[1..2]), &["Sham"]);
-        assert_eq!(
-            extract_fields(&rec, &[0..1, 2..3]),
-            &["Captain", "12345"]
-        );
+        assert_eq!(extract_fields(&rec, &[0..1, 2..3]), &["Captain", "12345"]);
         assert_eq!(extract_fields(&rec, &[0..1, 3..4]), &["Captain"]);
         assert_eq!(extract_fields(&rec, &[1..2, 0..1]), &["Sham", "Captain"]);
     }
@@ -371,10 +334,7 @@ mod unit_tests {
         assert_eq!(extract_chars("ábc", &[0..1, 2..3]), "ác".to_string());
         assert_eq!(extract_chars("ábc", &[0..3]), "ábc".to_string());
         assert_eq!(extract_chars("ábc", &[2..3, 1..2]), "cb".to_string());
-        assert_eq!(
-            extract_chars("ábc", &[0..1, 1..2, 4..5]),
-            "áb".to_string()
-        );
+        assert_eq!(extract_chars("ábc", &[0..1, 1..2, 4..5]), "áb".to_string());
     }
 
     #[test]

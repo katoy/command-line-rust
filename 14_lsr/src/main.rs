@@ -57,10 +57,9 @@ fn find_files(paths: &[String], show_hidden: bool) -> Result<Vec<PathBuf>> {
                     for entry in fs::read_dir(name)? {
                         let entry = entry?;
                         let path = entry.path();
-                        let is_hidden =
-                            path.file_name().map_or(false, |file_name| {
-                                file_name.to_string_lossy().starts_with('.')
-                            });
+                        let is_hidden = path
+                            .file_name()
+                            .is_some_and(|file_name| file_name.to_string_lossy().starts_with('.'));
                         if !is_hidden || show_hidden {
                             results.push(entry.path());
                         }
@@ -142,7 +141,7 @@ fn mk_triple(mode: u32, owner: Owner) -> String {
 // --------------------------------------------------
 #[cfg(test)]
 mod test {
-    use super::{find_files, format_mode, format_output, mk_triple, Owner};
+    use super::{Owner, find_files, format_mode, format_output, mk_triple};
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
 
@@ -251,8 +250,7 @@ mod test {
         assert!(res.is_ok());
 
         let out = res.unwrap();
-        let lines: Vec<&str> =
-            out.split('\n').filter(|s| !s.is_empty()).collect();
+        let lines: Vec<&str> = out.split('\n').filter(|s| !s.is_empty()).collect();
         assert_eq!(lines.len(), 1);
 
         let line1 = lines.first().unwrap();
@@ -268,8 +266,7 @@ mod test {
         assert!(res.is_ok());
 
         let out = res.unwrap();
-        let mut lines: Vec<&str> =
-            out.split('\n').filter(|s| !s.is_empty()).collect();
+        let mut lines: Vec<&str> = out.split('\n').filter(|s| !s.is_empty()).collect();
         lines.sort();
         assert_eq!(lines.len(), 2);
 
