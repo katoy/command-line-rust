@@ -62,7 +62,7 @@ fn main() {
 fn run(args: Args) -> Result<()> {
     let delim_bytes = args.delimiter.as_bytes();
     if delim_bytes.len() != 1 {
-        bail!(r#"--delim "{}" must be a single byte"#, args.delimiter);
+        bail!("--delim \"{}\" must be a single byte", args.delimiter);
     }
     let delimiter: u8 = *delim_bytes.first().unwrap();
 
@@ -76,38 +76,54 @@ fn run(args: Args) -> Result<()> {
         unreachable!("Must have --fields, --bytes, or --chars");
     };
 
+    let stdout = io::stdout();
+    let mut stdout_lock = stdout.lock();
+
     for filename in &args.files {
         match open(filename) {
             Err(err) => eprintln!("{filename}: {err}"),
-            Ok(file) => match &extract {
-                Extract::Fields(field_pos) => {
-                    let mut reader = ReaderBuilder::new()
-                        .delimiter(delimiter)
-                        .has_headers(false)
-                        .from_reader(file);
-
-                    let mut wtr = WriterBuilder::new()
-                        .delimiter(delimiter)
-                        .from_writer(io::stdout());
-
-                    for record in reader.records() {
-                        wtr.write_record(extract_fields(&record?, field_pos))?;
-                    }
-                }
-                Extract::Bytes(byte_pos) => {
-                    for line in file.lines() {
-                        println!("{}", extract_bytes(&line?, byte_pos));
-                    }
-                }
-                Extract::Chars(char_pos) => {
-                    for line in file.lines() {
-                        println!("{}", extract_chars(&line?, char_pos));
-                    }
-                }
-            },
+            Ok(file) => {
+                extract_content(file, &extract, delimiter, &mut stdout_lock)?;
+            }
         }
     }
 
+    Ok(())
+}
+
+fn extract_content(
+    file: Box<dyn BufRead>,
+    extract: &Extract,
+    delimiter: u8,
+    writer: &mut dyn io::Write,
+) -> Result<()> {
+    match extract {
+        Extract::Fields(field_pos) => {
+            let mut reader = ReaderBuilder::new()
+                .delimiter(delimiter)
+                .has_headers(false)
+                .from_reader(file);
+
+            let mut wtr = WriterBuilder::new()
+                .delimiter(delimiter)
+                .from_writer(writer);
+
+            for record in reader.records() {
+                wtr.write_record(extract_fields(&record?, field_pos))?;
+            }
+            wtr.flush()?;
+        }
+        Extract::Bytes(byte_pos) => {
+            for line in file.lines() {
+                writeln!(writer, "{}", extract_bytes(&line?, byte_pos))?;
+            }
+        }
+        Extract::Chars(char_pos) => {
+            for line in file.lines() {
+                writeln!(writer, "{}", extract_chars(&line?, char_pos))?;
+            }
+        }
+    }
     Ok(())
 }
 
@@ -126,7 +142,7 @@ fn open(filename: &str) -> Result<Box<dyn BufRead>> {
 // Returns an index, which is a non-negative integer that is
 // one less than the number represented by the original input.
 fn parse_index(input: &str) -> Result<usize> {
-    let value_error = || anyhow!(r#"illegal list value: "{input}""#);
+    let value_error = || anyhow!("illegal list value: \"{}\"", input);
     if input.starts_with('+') {
         Err(value_error())
     } else {
@@ -149,8 +165,7 @@ fn parse_pos(range: String) -> Result<PositionList> {
                     let n2 = parse_index(&captures[2])?;
                     if n1 >= n2 {
                         bail!(
-                            "First number in range ({}) \
-                            must be lower than second number ({})",
+                            "First number in range ({}) must be lower than second number ({})",
                             n1 + 1,
                             n2 + 1
                         );
@@ -195,9 +210,183 @@ fn extract_chars(line: &str, char_pos: &[Range<usize>]) -> String {
 // --------------------------------------------------
 #[cfg(test)]
 mod unit_tests {
-    use super::{extract_bytes, extract_chars, extract_fields, parse_pos};
+    use super::*;
     use csv::StringRecord;
     use pretty_assertions::assert_eq;
+    use std::io::{Cursor, Write};
+
+    struct ErrorWriter;
+    impl std::io::Write for ErrorWriter {
+        fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "broken pipe",
+            ))
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_error_writer() {
+        let mut writer = ErrorWriter;
+        assert!(writer.flush().is_ok());
+    }
+
+    #[test]
+    fn test_run_read_error() {
+        let filename = "bad.csv";
+        let mut file = std::fs::File::create(filename).unwrap();
+        file.write_all(&[0xff, 0xff]).unwrap();
+
+        let args = Args {
+            files: vec![filename.to_string()],
+            delimiter: ",".to_string(),
+            extract: ArgsExtract {
+                fields: Some("1".to_string()),
+                bytes: None,
+                chars: None,
+            },
+        };
+
+        let res = run(args);
+        assert!(res.is_err());
+
+        std::fs::remove_file(filename).unwrap();
+    }
+
+    #[test]
+    fn test_open_stdin() {
+        // 標準入力からの読み込みをシミュレート
+        let input = "a\tb\tc\n1\t2\t3\n";
+        let reader = Cursor::new(input.as_bytes());
+        let mut output = Vec::new();
+
+        let extract = Extract::Fields(vec![0..1]);
+        
+        let res = extract_content(Box::new(reader), &extract, b'\t', &mut output);
+        assert!(res.is_ok());
+        assert_eq!(String::from_utf8(output).unwrap(), "a\n1\n");
+    }
+
+    #[test]
+    fn test_open_stdin_bytes() {
+        let input = "abc\ndef";
+        let reader = Cursor::new(input.as_bytes());
+        let mut output = Vec::new();
+        let extract = Extract::Bytes(vec![0..1]);
+        let res = extract_content(Box::new(reader), &extract, b' ', &mut output);
+        assert!(res.is_ok());
+        assert_eq!(String::from_utf8(output).unwrap(), "a\nd\n");
+    }
+
+    #[test]
+    fn test_open_stdin_chars() {
+        let input = "あいう\nえおか";
+        let reader = Cursor::new(input.as_bytes());
+        let mut output = Vec::new();
+        let extract = Extract::Chars(vec![0..1]);
+        let res = extract_content(Box::new(reader), &extract, b' ', &mut output);
+        assert!(res.is_ok());
+        assert_eq!(String::from_utf8(output).unwrap(), "あ\nえ\n");
+    }
+
+    #[test]
+    fn test_extract_content_read_error_bytes() {
+        let data = vec![0xff, 0xff];
+        let cursor = Cursor::new(data);
+        let reader = Box::new(cursor);
+        let mut writer = Vec::new();
+        let extract = Extract::Bytes(vec![0..1]);
+
+        let res = extract_content(reader, &extract, b',', &mut writer);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_extract_content_read_error_chars() {
+        let data = vec![0xff, 0xff];
+        let cursor = Cursor::new(data);
+        let reader = Box::new(cursor);
+        let mut writer = Vec::new();
+        let extract = Extract::Chars(vec![0..1]);
+
+        let res = extract_content(reader, &extract, b',', &mut writer);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_extract_content_write_error_bytes() {
+        let data = "col1,col2\nval1,val2";
+        let cursor = Cursor::new(data);
+        let reader = Box::new(cursor);
+        let mut writer = ErrorWriter;
+        let extract = Extract::Bytes(vec![0..1]);
+
+        let res = extract_content(reader, &extract, b',', &mut writer);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err().to_string(), "broken pipe");
+    }
+
+    #[test]
+    fn test_extract_content_write_error_chars() {
+        let data = "col1,col2\nval1,val2";
+        let cursor = Cursor::new(data);
+        let reader = Box::new(cursor);
+        let mut writer = ErrorWriter;
+        let extract = Extract::Chars(vec![0..1]);
+
+        let res = extract_content(reader, &extract, b',', &mut writer);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err().to_string(), "broken pipe");
+    }
+
+    #[test]
+    #[should_panic(expected = "Must have --fields, --bytes, or --chars")]
+    fn test_run_unreachable() {
+        let args = Args {
+            files: vec!["tests/inputs/movies1.csv".to_string()],
+            delimiter: ",".to_string(),
+            extract: ArgsExtract {
+                fields: None,
+                bytes: None,
+                chars: None,
+            },
+        };
+        let _ = run(args);
+    }
+
+    #[test]
+    fn test_run_bad_file() {
+        let args = Args {
+            files: vec!["bad_file_name".to_string()],
+            delimiter: ",".to_string(),
+            extract: ArgsExtract {
+                fields: Some("1".to_string()),
+                bytes: None,
+                chars: None,
+            },
+        };
+        // run はエラーを返さず、標準エラーに出力する仕様
+        let res = run(args);
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_extract_content_read_error() {
+        // 不正なUTF-8シーケンスを作成
+        let data = vec![0xff, 0xff];
+        let cursor = Cursor::new(data);
+        let reader = Box::new(cursor);
+        let mut writer = Vec::new(); // Dummy writer
+        let extract = Extract::Fields(vec![0..1]);
+
+        let res = extract_content(reader, &extract, b',', &mut writer);
+        assert!(res.is_err());
+    }
+
+
 
     #[test]
     fn test_parse_pos() {
@@ -207,47 +396,47 @@ mod unit_tests {
         // Zero is an error
         let res = parse_pos("0".to_string());
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "0""#);
+        assert_eq!(res.unwrap_err().to_string(), "illegal list value: \"0\"");
 
         let res = parse_pos("0-1".to_string());
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "0""#);
+        assert_eq!(res.unwrap_err().to_string(), "illegal list value: \"0\"");
 
         // A leading "+" is an error
         let res = parse_pos("+1".to_string());
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "+1""#,);
+        assert_eq!(res.unwrap_err().to_string(), "illegal list value: \"+1\"");
 
         let res = parse_pos("+1-2".to_string());
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err().to_string(),
-            r#"illegal list value: "+1-2""#,
+            "illegal list value: \"+1-2\"",
         );
 
         let res = parse_pos("1-+2".to_string());
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err().to_string(),
-            r#"illegal list value: "1-+2""#,
+            "illegal list value: \"1-+2\"",
         );
 
         // Any non-number is an error
         let res = parse_pos("a".to_string());
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "a""#);
+        assert_eq!(res.unwrap_err().to_string(), "illegal list value: \"a\"");
 
         let res = parse_pos("1,a".to_string());
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "a""#);
+        assert_eq!(res.unwrap_err().to_string(), "illegal list value: \"a\"");
 
         let res = parse_pos("1-a".to_string());
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "1-a""#,);
+        assert_eq!(res.unwrap_err().to_string(), "illegal list value: \"1-a\"");
 
         let res = parse_pos("a-1".to_string());
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "a-1""#,);
+        assert_eq!(res.unwrap_err().to_string(), "illegal list value: \"a-1\"");
 
         // Wonky ranges
         let res = parse_pos("-".to_string());
@@ -339,7 +528,7 @@ mod unit_tests {
 
     #[test]
     fn test_extract_bytes() {
-        assert_eq!(extract_bytes("ábc", &[0..1]), "�".to_string());
+        assert_eq!(extract_bytes("ábc", &[0..1]), "\u{FFFD}".to_string());
         assert_eq!(extract_bytes("ábc", &[0..2]), "á".to_string());
         assert_eq!(extract_bytes("ábc", &[0..3]), "áb".to_string());
         assert_eq!(extract_bytes("ábc", &[0..4]), "ábc".to_string());
