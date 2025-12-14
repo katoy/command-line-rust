@@ -2,7 +2,7 @@ use ansi_term::Style;
 use anyhow::{bail, Result};
 use chrono::{Datelike, Local, NaiveDate};
 use clap::Parser;
-use itertools::izip;
+
 
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
@@ -72,13 +72,14 @@ fn run(args: Args) -> Result<()> {
                 .collect();
 
             for (i, chunk) in months.chunks(3).enumerate() {
-                if let [m1, m2, m3] = chunk {
-                    for lines in izip!(m1, m2, m3) {
-                        println!("{}{}{}", lines.0, lines.1, lines.2);
+                for line_num in 0..8 {
+                    for month_lines in chunk {
+                        print!("{}", month_lines[line_num]);
                     }
-                    if i < 3 {
-                        println!();
-                    }
+                    println!();
+                }
+                if i < 3 {
+                    println!();
                 }
             }
         }
