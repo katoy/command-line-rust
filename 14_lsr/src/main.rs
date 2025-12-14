@@ -37,7 +37,7 @@ fn main() {
 fn run(args: Args) -> Result<()> {
     let paths = find_files(&args.paths, args.show_hidden)?;
     if args.long {
-        println!("{}", format_output(&paths)?);
+        println!("{}", format_output(&paths));
     } else {
         for path in paths {
             println!("{}", path.display());
@@ -54,8 +54,7 @@ fn find_files(paths: &[String], show_hidden: bool) -> Result<Vec<PathBuf>> {
             Err(e) => eprintln!("{name}: {e}"),
             Ok(meta) => {
                 if meta.is_dir() {
-                    for entry in fs::read_dir(name)? {
-                        let entry = entry?;
+                    for entry in fs::read_dir(name)?.filter_map(|e| e.ok()) {
                         let path = entry.path();
                         let is_hidden = path
                             .file_name()
@@ -75,27 +74,33 @@ fn find_files(paths: &[String], show_hidden: bool) -> Result<Vec<PathBuf>> {
 }
 
 // --------------------------------------------------
-fn format_output(paths: &[PathBuf]) -> Result<String> {
+fn format_output(paths: &[PathBuf]) -> String {
     //         1   2     3     4     5     6     7     8
     let fmt = "{:<}{:<}  {:>}  {:<}  {:<}  {:>}  {:<}  {:<}";
     let mut table = Table::new(fmt);
 
     for path in paths {
-        let metadata = path.metadata()?;
+        let metadata = match path.metadata() {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("{}: {}", path.display(), e);
+                continue;
+            }
+        };
 
         let uid = metadata.uid();
-        let user = get_user_by_uid(uid)
-            .map(|u| u.name().to_string_lossy().into_owned())
-            .unwrap_or_else(|| uid.to_string());
+        let user = uid_to_name(uid);
 
         let gid = metadata.gid();
-        let group = get_group_by_gid(gid)
-            .map(|g| g.name().to_string_lossy().into_owned())
-            .unwrap_or_else(|| gid.to_string());
+        let group = gid_to_name(gid);
 
         let file_type = if path.is_dir() { "d" } else { "-" };
         let perms = format_mode(metadata.mode());
-        let modified: DateTime<Local> = DateTime::from(metadata.modified()?);
+        let modified: DateTime<Local> = DateTime::from(
+            metadata
+                .modified()
+                .unwrap_or(std::time::SystemTime::UNIX_EPOCH),
+        );
 
         table.add_row(
             Row::new()
@@ -110,7 +115,23 @@ fn format_output(paths: &[PathBuf]) -> Result<String> {
         );
     }
 
-    Ok(format!("{table}"))
+    format!("{table}")
+}
+
+// --------------------------------------------------
+fn uid_to_name(uid: u32) -> String {
+    match get_user_by_uid(uid) {
+        Some(u) => u.name().to_string_lossy().into_owned(),
+        None => uid.to_string(),
+    }
+}
+
+// --------------------------------------------------
+fn gid_to_name(gid: u32) -> String {
+    match get_group_by_gid(gid) {
+        Some(g) => g.name().to_string_lossy().into_owned(),
+        None => gid.to_string(),
+    }
 }
 
 // --------------------------------------------------
@@ -141,9 +162,16 @@ fn mk_triple(mode: u32, owner: Owner) -> String {
 // --------------------------------------------------
 #[cfg(test)]
 mod test {
-    use super::{Owner, find_files, format_mode, format_output, mk_triple};
+    use super::{Owner, find_files, format_mode, format_output, gid_to_name, mk_triple, uid_to_name};
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
+
+    #[test]
+    fn test_find_files_empty() {
+        let res = find_files(&[], false);
+        assert!(res.is_ok());
+        assert!(res.unwrap().is_empty());
+    }
 
     #[test]
     fn test_find_files() {
@@ -246,10 +274,7 @@ mod test {
         let bustle_path = "tests/inputs/bustle.txt";
         let bustle = PathBuf::from(bustle_path);
 
-        let res = format_output(&[bustle]);
-        assert!(res.is_ok());
-
-        let out = res.unwrap();
+        let out = format_output(&[bustle]);
         let lines: Vec<&str> = out.split('\n').filter(|s| !s.is_empty()).collect();
         assert_eq!(lines.len(), 1);
 
@@ -259,13 +284,10 @@ mod test {
 
     #[test]
     fn test_format_output_two() {
-        let res = format_output(&[
+        let out = format_output(&[
             PathBuf::from("tests/inputs/dir"),
             PathBuf::from("tests/inputs/empty.txt"),
         ]);
-        assert!(res.is_ok());
-
-        let out = res.unwrap();
         let mut lines: Vec<&str> = out.split('\n').filter(|s| !s.is_empty()).collect();
         lines.sort();
         assert_eq!(lines.len(), 2);
@@ -283,6 +305,13 @@ mod test {
     }
 
     #[test]
+    fn test_format_output_error() {
+        let bad_path = PathBuf::from("non_existent_file_xyz");
+        let res = format_output(&[bad_path]);
+        assert!(res.is_empty());
+    }
+
+    #[test]
     fn test_mk_triple() {
         assert_eq!(mk_triple(0o751, Owner::User), "rwx");
         assert_eq!(mk_triple(0o751, Owner::Group), "r-x");
@@ -294,5 +323,15 @@ mod test {
     fn test_format_mode() {
         assert_eq!(format_mode(0o755), "rwxr-xr-x");
         assert_eq!(format_mode(0o421), "r---w---x");
+    }
+
+    #[test]
+    fn test_uid_to_name() {
+        assert_eq!(uid_to_name(999999), "999999");
+    }
+
+    #[test]
+    fn test_gid_to_name() {
+        assert_eq!(gid_to_name(999999), "999999");
     }
 }

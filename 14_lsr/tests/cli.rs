@@ -1,11 +1,12 @@
 use anyhow::Result;
-use assert_cmd::Command;
+use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use pretty_assertions::assert_eq;
 use rand::{distributions::Alphanumeric, Rng};
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
+use std::process::Command;
 
-const PRG: &str = "lsr";
 const HIDDEN: &str = "tests/inputs/.hidden";
 const EMPTY: &str = "tests/inputs/empty.txt";
 const BUSTLE: &str = "tests/inputs/bustle.txt";
@@ -32,7 +33,7 @@ fn bad_file() -> Result<()> {
     let bad = gen_bad_file();
     let expected =
         format!("{}: No such file or directory (os error 2)", &bad);
-    Command::cargo_bin(PRG)?
+    Command::new(env!("CARGO_BIN_EXE_lsr"))
         .arg(&bad)
         .assert()
         .success()
@@ -44,7 +45,7 @@ fn bad_file() -> Result<()> {
 #[test]
 fn no_args() -> Result<()> {
     // Uses current directory by default
-    Command::cargo_bin(PRG)?
+    Command::new(env!("CARGO_BIN_EXE_lsr"))
         .assert()
         .success()
         .stdout(predicate::str::contains("Cargo.toml"));
@@ -53,7 +54,7 @@ fn no_args() -> Result<()> {
 
 // --------------------------------------------------
 fn run_short(arg: &str) -> Result<()> {
-    Command::cargo_bin(PRG)?
+    Command::new(env!("CARGO_BIN_EXE_lsr"))
         .arg(arg)
         .assert()
         .success()
@@ -63,7 +64,7 @@ fn run_short(arg: &str) -> Result<()> {
 
 // --------------------------------------------------
 fn run_long(filename: &str, permissions: &str, size: &str) -> Result<()> {
-    let cmd = Command::cargo_bin(PRG)?
+    let cmd = Command::new(env!("CARGO_BIN_EXE_lsr"))
         .args(["--long", filename])
         .assert()
         .success();
@@ -121,7 +122,7 @@ fn hidden_long() -> Result<()> {
 
 // --------------------------------------------------
 fn dir_short(args: &[&str], expected: &[&str]) -> Result<()> {
-    let cmd = Command::cargo_bin(PRG)?.args(args).assert().success();
+    let cmd = Command::new(env!("CARGO_BIN_EXE_lsr")).args(args).assert().success();
     let stdout = String::from_utf8(cmd.get_output().stdout.clone())?;
     let lines: Vec<&str> =
         stdout.split('\n').filter(|s| !s.is_empty()).collect();
@@ -175,7 +176,7 @@ fn dir2_all() -> Result<()> {
 // --------------------------------------------------
 #[allow(suspicious_double_ref_op)]
 fn dir_long(args: &[&str], expected: &[(&str, &str, &str)]) -> Result<()> {
-    let cmd = Command::cargo_bin(PRG)?.args(args).assert().success();
+    let cmd = Command::new(env!("CARGO_BIN_EXE_lsr")).args(args).assert().success();
     let stdout = String::from_utf8(cmd.get_output().stdout.clone())?;
     let lines: Vec<&str> =
         stdout.split('\n').filter(|s| !s.is_empty()).collect();
@@ -245,4 +246,28 @@ fn dir2_long_all() -> Result<()> {
             ("tests/inputs/dir/.gitkeep", "-rw-r--r--", "0"),
         ],
     )
+}
+
+#[test]
+fn test_read_dir_error() -> Result<()> {
+    let dir_name = gen_bad_file();
+    fs::create_dir(&dir_name)?;
+    let metadata = fs::metadata(&dir_name)?;
+    let mut permissions = metadata.permissions();
+    permissions.set_mode(0o000);
+    fs::set_permissions(&dir_name, permissions)?;
+
+    let res = Command::new(env!("CARGO_BIN_EXE_lsr"))
+        .arg(&dir_name)
+        .assert();
+
+    let mut permissions = fs::metadata(&dir_name)?.permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&dir_name, permissions)?;
+    fs::remove_dir(&dir_name)?;
+
+    res.failure()
+        .stderr(predicate::str::contains("Permission denied"));
+
+    Ok(())
 }
