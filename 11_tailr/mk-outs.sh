@@ -47,3 +47,10 @@ tail -c +3    $ALL > $OUT_DIR/all.c+3.out
 tail -c +8    $ALL > $OUT_DIR/all.c+8.out
 tail -c +12   $ALL > $OUT_DIR/all.c+12.out
 tail -n +3 -q $ALL > $OUT_DIR/all.n+3.q.out
+
+# Additional files for coverage tests
+tail -c +101 tests/inputs/long_file.txt > tests/expected/long_file.txt.c+101.out
+tail -n +51 tests/inputs/long_lines.txt > tests/expected/long_lines.txt.n+51.out
+tail tests/inputs/one.txt tests/inputs/two.txt > tests/expected/one_two.out
+tail tests/inputs/one.txt > tests/expected/one_no_header.out
+tail -q tests/inputs/one.txt tests/inputs/two.txt > tests/expected/one_two_q.out
