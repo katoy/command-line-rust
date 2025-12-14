@@ -2,6 +2,7 @@
 name = "ascii"
 version = "0.1.0"
 edition = "2024"
+description = "ASCII コード（33〜127）とその対応する文字を、見やすい表形式で標準出力に表示する CLI ツールです。"
 
 [dependencies]
 transpose = "0.2.3"
