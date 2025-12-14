@@ -192,12 +192,11 @@ mod tests {
         assert!(res.is_ok());
         let files = res.unwrap();
         assert_eq!(files.len(), 2);
-        if let Some(filename) = files.first().unwrap().file_name() {
-            assert_eq!(filename.to_string_lossy(), "ascii-art".to_string())
-        }
-        if let Some(filename) = files.last().unwrap().file_name() {
-            assert_eq!(filename.to_string_lossy(), "jokes".to_string())
-        }
+        let filename = files.first().unwrap().file_name().unwrap();
+        assert_eq!(filename.to_string_lossy(), "ascii-art".to_string());
+
+        let filename = files.last().unwrap().file_name().unwrap();
+        assert_eq!(filename.to_string_lossy(), "jokes".to_string());
     }
 
     #[test]
@@ -206,20 +205,19 @@ mod tests {
         let res = read_fortunes(&[PathBuf::from("./tests/inputs/jokes")]);
         assert!(res.is_ok());
 
-        if let Ok(fortunes) = res {
-            // Correct number and sorting
-            assert_eq!(fortunes.len(), 6);
-            assert_eq!(
-                fortunes.first().unwrap().text,
-                "Q. What do you call a head of lettuce in a shirt and tie?\n\
-                A. Collared greens."
-            );
-            assert_eq!(
-                fortunes.last().unwrap().text,
-                "Q: What do you call a deer wearing an eye patch?\n\
-                A: A bad idea (bad-eye deer)."
-            );
-        }
+        let fortunes = res.unwrap();
+        // Correct number and sorting
+        assert_eq!(fortunes.len(), 6);
+        assert_eq!(
+            fortunes.first().unwrap().text,
+            "Q. What do you call a head of lettuce in a shirt and tie?\n\
+            A. Collared greens."
+        );
+        assert_eq!(
+            fortunes.last().unwrap().text,
+            "Q: What do you call a deer wearing an eye patch?\n\
+            A: A bad idea (bad-eye deer)."
+        );
 
         // Filters for matching text
         let res = read_fortunes(&[
@@ -228,6 +226,10 @@ mod tests {
         ]);
         assert!(res.is_ok());
         assert_eq!(res.unwrap().len(), 11);
+
+        // Fails on bad file
+        let res = read_fortunes(&[PathBuf::from("/path/does/not/exist")]);
+        assert!(res.is_err());
     }
 
     #[test]

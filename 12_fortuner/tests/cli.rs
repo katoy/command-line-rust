@@ -1,11 +1,9 @@
 use anyhow::Result;
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use pretty_assertions::assert_eq;
 use rand::{distributions::Alphanumeric, Rng};
 use std::fs;
-
-const PRG: &str = "fortuner";
 const FORTUNE_DIR: &str = "./tests/inputs";
 const EMPTY_DIR: &str = "./tests/inputs/empty";
 const JOKES: &str = "./tests/inputs/jokes";
@@ -36,7 +34,7 @@ fn gen_bad_file() -> String {
 fn dies_not_enough_args() -> Result<()> {
     let expected = "the following required arguments were not provided:\n  \
         <FILE>...";
-    Command::cargo_bin(PRG)?
+    cargo_bin_cmd!("fortuner")
         .assert()
         .failure()
         .stderr(predicate::str::is_match(expected)?);
@@ -48,7 +46,7 @@ fn dies_not_enough_args() -> Result<()> {
 fn dies_bad_file() -> Result<()> {
     let bad = gen_bad_file();
     let expected = format!("{bad}: .* [(]os error 2[)]");
-    Command::cargo_bin(PRG)?
+    cargo_bin_cmd!("fortuner")
         .args([LITERATURE, &bad])
         .assert()
         .failure()
@@ -60,7 +58,7 @@ fn dies_bad_file() -> Result<()> {
 #[test]
 fn dies_bad_pattern() -> Result<()> {
     let expected = r#"Invalid --pattern "*""#;
-    Command::cargo_bin(PRG)?
+    cargo_bin_cmd!("fortuner")
         .args(["--pattern", "*", LITERATURE])
         .assert()
         .failure()
@@ -73,7 +71,7 @@ fn dies_bad_pattern() -> Result<()> {
 fn dies_bad_seed() -> Result<()> {
     let bad = random_string();
     let expected = format!("invalid value '{bad}' for '--seed <SEED>'");
-    Command::cargo_bin(PRG)?
+    cargo_bin_cmd!("fortuner")
         .args([LITERATURE, "--seed", &bad])
         .assert()
         .failure()
@@ -117,7 +115,7 @@ fn dir_seed_10() -> Result<()> {
 
 // --------------------------------------------------
 fn run(args: &[&str], expected: &'static str) -> Result<()> {
-    let output = Command::cargo_bin(PRG)?.args(args).output().expect("fail");
+    let output = cargo_bin_cmd!("fortuner").args(args).output().expect("fail");
     assert!(output.status.success());
 
     let stdout = String::from_utf8(output.stdout).expect("invalid UTF-8");
@@ -130,7 +128,7 @@ fn run_outfiles(args: &[&str], out_file: &str, err_file: &str) -> Result<()> {
     let expected_out = fs::read_to_string(out_file)?;
     let expected_err = fs::read_to_string(err_file)?;
 
-    let output = Command::cargo_bin(PRG)?.args(args).output().expect("fail");
+    let output = cargo_bin_cmd!("fortuner").args(args).output().expect("fail");
     assert!(output.status.success());
 
     let stdout =
