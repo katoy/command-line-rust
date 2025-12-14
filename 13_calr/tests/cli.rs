@@ -1,15 +1,15 @@
 use anyhow::Result;
-use assert_cmd::Command;
+use assert_cmd::{Command, cargo};
 use predicates::prelude::*;
 use pretty_assertions::assert_eq;
 use std::fs;
 
-const PRG: &str = "calr";
+
 
 // --------------------------------------------------
 #[test]
 fn dies_year_0() -> Result<()> {
-    Command::cargo_bin(PRG)?.arg("0").assert().failure().stderr(
+    Command::new(cargo::cargo_bin!("calr")).arg("0").assert().failure().stderr(
         predicate::str::contains(
             "error: invalid value '0' for '[YEAR]': 0 is not in 1..=9999",
         ),
@@ -20,7 +20,7 @@ fn dies_year_0() -> Result<()> {
 // --------------------------------------------------
 #[test]
 fn dies_year_10000() -> Result<()> {
-    Command::cargo_bin(PRG)?
+    Command::new(cargo::cargo_bin!("calr"))
         .arg("10000")
         .assert()
         .failure()
@@ -34,7 +34,7 @@ fn dies_year_10000() -> Result<()> {
 // --------------------------------------------------
 #[test]
 fn dies_invalid_year() -> Result<()> {
-    Command::cargo_bin(PRG)?
+    Command::new(cargo::cargo_bin!("calr"))
         .arg("foo")
         .assert()
         .failure()
@@ -48,7 +48,7 @@ fn dies_invalid_year() -> Result<()> {
 // --------------------------------------------------
 #[test]
 fn dies_month_0() -> Result<()> {
-    let output = Command::cargo_bin(PRG)?
+    let output = Command::new(cargo::cargo_bin!("calr"))
         .args(["-m", "0"])
         .output()
         .expect("fail");
@@ -66,7 +66,7 @@ fn dies_month_0() -> Result<()> {
 // --------------------------------------------------
 #[test]
 fn dies_month_13() -> Result<()> {
-    let output = Command::cargo_bin(PRG)?
+    let output = Command::new(cargo::cargo_bin!("calr"))
         .args(["-m", "13"])
         .output()
         .expect("fail");
@@ -80,7 +80,7 @@ fn dies_month_13() -> Result<()> {
 // --------------------------------------------------
 #[test]
 fn dies_invalid_month() -> Result<()> {
-    let output = Command::cargo_bin(PRG)?
+    let output = Command::new(cargo::cargo_bin!("calr"))
         .args(["-m", "foo"])
         .output()
         .expect("fail");
@@ -95,7 +95,7 @@ fn dies_invalid_month() -> Result<()> {
 #[test]
 fn dies_y_and_month() -> Result<()> {
     let expected = "the argument '-m <MONTH>' cannot be used with '--year'";
-    Command::cargo_bin(PRG)?
+    Command::new(cargo::cargo_bin!("calr"))
         .args(["-m", "1", "-y"])
         .assert()
         .failure()
@@ -107,7 +107,7 @@ fn dies_y_and_month() -> Result<()> {
 #[test]
 fn dies_y_and_year() -> Result<()> {
     let expected = "the argument '--year' cannot be used with '[YEAR]'";
-    Command::cargo_bin(PRG)?
+    Command::new(cargo::cargo_bin!("calr"))
         .args(["-y", "2000"])
         .assert()
         .failure()
@@ -134,7 +134,7 @@ fn month_num() -> Result<()> {
     ];
 
     for (num, month) in expected {
-        Command::cargo_bin(PRG)?
+        Command::new(cargo::cargo_bin!("calr"))
             .args(["-m", num])
             .assert()
             .success()
@@ -161,7 +161,7 @@ fn partial_month() -> Result<()> {
     ];
 
     for (arg, month) in expected {
-        Command::cargo_bin(PRG)?
+        Command::new(cargo::cargo_bin!("calr"))
             .args(["-m", arg])
             .assert()
             .success()
@@ -173,7 +173,7 @@ fn partial_month() -> Result<()> {
 // --------------------------------------------------
 fn run(args: &[&str], expected_file: &str) -> Result<()> {
     let expected = fs::read_to_string(expected_file)?;
-    let output = Command::cargo_bin(PRG)?.args(args).output().expect("fail");
+    let output = Command::new(cargo::cargo_bin!("calr")).args(args).output().expect("fail");
     assert!(output.status.success());
 
     let stdout = String::from_utf8(output.stdout).expect("invalid UTF-8");
@@ -184,7 +184,7 @@ fn run(args: &[&str], expected_file: &str) -> Result<()> {
 // --------------------------------------------------
 #[test]
 fn default_one_month() -> Result<()> {
-    let cmd = Command::cargo_bin(PRG)?.assert().success();
+    let cmd = Command::new(cargo::cargo_bin!("calr")).assert().success();
     let out = cmd.get_output();
     let stdout = String::from_utf8(out.stdout.clone())?;
     let lines: Vec<_> = stdout.split('\n').collect();
@@ -220,7 +220,7 @@ fn test_2020() -> Result<()> {
 // --------------------------------------------------
 #[test]
 fn year() -> Result<()> {
-    let cmd = Command::cargo_bin(PRG)?.arg("-y").assert().success();
+    let cmd = Command::new(cargo::cargo_bin!("calr")).arg("-y").assert().success();
     let stdout = String::from_utf8(cmd.get_output().stdout.clone())?;
     let lines: Vec<&str> = stdout.split('\n').collect();
     assert_eq!(lines.len(), 37);

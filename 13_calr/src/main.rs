@@ -227,6 +227,10 @@ mod tests {
         let res = parse_month("foo".to_string());
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().to_string(), r#"Invalid month "foo""#);
+
+        let res = parse_month("m".to_string());
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err().to_string(), r#"Invalid month "m""#);
     }
 
     #[test]
